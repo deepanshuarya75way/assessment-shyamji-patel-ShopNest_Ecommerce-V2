@@ -3,13 +3,14 @@ const crypto = require("crypto");
 const Order = require("../model/Order");
 const Product = require("../model/Product");
 const sendEmail = require("../utils/sendEmail");
+const Coupon=require("../model/Coupon");
 
 // STEP 1: Create a Razorpay order + a matching "pending" Order in our DB.
 // We NEVER trust the price/amount sent by the client — we always look up
 // the real product price from the database.
 const createdOrder = async (req, res) => {
     try {
-        const { items, address } = req.body;
+        const { items, address,couponCode } = req.body;
 
         if (!items || items.length === 0 || !address) {
             return res.status(400).json({ message: "Invalid order data" });
@@ -36,6 +37,44 @@ const createdOrder = async (req, res) => {
                 price: product.price
             });
         }
+        let discount=0;
+        let appliedCoupon=null;
+        if(couponCode){
+            const coupon=await Coupon.findOne({
+                code:couponCode.trim().toUpperCase(),
+                isActive:true
+            });
+            if(!coupon){
+                return res.status(400).json({
+                    message:"Invalid coupon"
+                });
+
+            }
+            if(coupon.expiryDate && new Date(coupon.expiryDate)<new Date()){
+                return res.status(400).json({
+                    message:"Coupon expired"
+                });
+            }
+            if(coupon.minOrderAmount && totalAmount<coupon.minOrderAmount){
+                return res.status(400).json({
+                    message:"Coupon usage limit reached"
+                });
+            }
+            if(coupon.discountType==="persentage"){
+                discount=totalAmount*coupon.discountValue/100;
+            }else{
+                discount=coupon.discountValue;
+            }
+            discount=Math.min(discount,totalAmount);
+            appliedCoupon=coupon;
+        }
+        const finalAmount=Math.round((totalAmount-discount)*100)/100;
+        if(finalAmount<=0){
+            return res.status(400).json({
+                message:"Invalid payable amount"
+            });
+        }
+
 
         const instance = new Razorpay({
             key_id: process.env.RAZORPAY_KEY_ID,
@@ -43,7 +82,7 @@ const createdOrder = async (req, res) => {
         });
 
         const options = {
-            amount: Math.round(totalAmount * 100), // paise, calculated from DB prices only
+            amount: Math.round(finalAmount * 100), // paise, calculated from DB prices only
             currency: "INR",
             receipt: crypto.randomBytes(10).toString("hex"),
         };
@@ -55,7 +94,11 @@ const createdOrder = async (req, res) => {
         const order = new Order({
             user: req.user._id,
             items: formattedItems,
-            totalAmount,
+            subtotal:totalAmount,
+            discountAmount:discount,
+            couponCode:appliedCoupon?.code||null,
+            couponId:appliedCoupon?._id||null,
+            totalAmount:finalAmount,
             address,
             razorpayOrderId: razorpayOrder.id,
             status: "pending"

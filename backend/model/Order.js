@@ -10,6 +10,24 @@ const orderSchema = new mongoose.Schema({
         }
     ],
     totalAmount: { type: Number, required: true },
+    subtotal:{
+        type:Number,
+        required:true
+    },
+    discountAmount:{
+        type:Number,
+        default:0,
+        min:0
+    },
+    couponCode:{
+        type:String,
+        default:null
+    },
+    couponId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Coupon",
+        default:null
+    },
     address: {
         fullName: { type: String, required: true },
         street: { type: String, required: true },

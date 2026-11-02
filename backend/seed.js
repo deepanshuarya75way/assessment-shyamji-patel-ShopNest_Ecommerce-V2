@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const User = require('./model/User');
 const Product = require('./model/Product');
 const connectDB = require('./config/db');
+const Coupon=require("./model/Coupon");
 
 dotenv.config();
 
@@ -217,9 +218,33 @@ const importData = async () => {
         ratings: 4.5,
         numReviews: 21
       }
+      
     ];
+    const coupons=[
+        {
+          "code":"SAVE120",
+          "discountType":"persentage",
+          "discountValue":20,
+          "minOrderAmount":500,
+          "expiryDate":new Date("2027-09-31T23:59:59.000Z"),
+          "usageLimit":100,
+          "usedCount":0,
+          "isActive":true
+        },
+        {
+          "code":"SAVE40",
+          "discountType":"persentage",
+          "discountValue":40,
+          "minOrderAmount":1000,
+          "expiryDate":new Date("2026-09-31T23:59:59.000Z"),
+          "usageLimit":100,
+          "usedCount":0,
+          "isActive":true
+        }
+      ];
 
     await Product.insertMany(products);
+    await Coupon.insertMany(coupons);
 
     console.log('✅ Data Imported Successfully!');
     process.exit();

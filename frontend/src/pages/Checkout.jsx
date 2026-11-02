@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect} from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -15,10 +15,56 @@ const Checkout = () => {
   const [address, setAddress] = useState({
     fullName: '', street: '', city: '', postalCode: '', country: ''
   });
+  const [couponCode, setCouponCode]=useState("");
+  const [appliedCoupon,setAppliedCoupon]=useState("");
+  const [discount,setDiscount]=useState(0);
+  const [couponError, setCouponError]=useState("");
+  const [couponSuccess, setCouponSuccess]=useState("");
+  const [applyingCoupon,setApplyingCoupon]=useState(false);
 
   // Shown for reference only — the real, trusted total is calculated
   // by the backend from the database, not from this value.
   const displayTotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const finalTotal=Math.max(0,displayTotal-discount);
+  const applyCoupon=async()=>{
+    setCouponError("");
+    setCouponSuccess("");
+    setApplyingCoupon(true);
+    try{
+      const response=await fetch("/api/coupons/validate",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          ...(user?.token?{Authorization:`Bearer ${user.token}`}
+            :{})
+        },
+        body:JSON.stringify({
+          code:couponCode.trim().toUpperCase(),
+          cartTotal:displayTotal
+        })
+      });
+      const data=await response.json();
+      if(!response.ok||!data.valid){
+        throw new Error(data.message||"Invalid coupon code");
+      }
+      setDiscount(data.discount);
+      setAppliedCoupon(data.code);
+      setCouponSuccess("Coupon applied successfully!");
+    }
+    catch(error){
+      setDiscount(0);
+      setAppliedCoupon("");
+      setCouponError(error.message);
+    }finally{
+      setApplyingCoupon(false);
+    }
+  };
+  useEffect(()=>{
+    setDiscount(0);
+    setAppliedCoupon("");
+    setCouponSuccess("");
+    setCouponError("");
+  },[cartItems]);
 
   const handlePayment = async () => {
     setLoading(true);
@@ -31,7 +77,7 @@ const Checkout = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${user.token}`
         },
-        body: JSON.stringify({ items: cartItems, address })
+        body: JSON.stringify({ items: cartItems, address,couponCode:appliedCoupon||null})
       });
 
       const orderData = await orderRes.json();
@@ -129,7 +175,45 @@ const Checkout = () => {
           <input type="text" placeholder="Postal Code" required value={address.postalCode} onChange={(e) => setAddress({...address, postalCode: e.target.value})} />
           <input type="text" placeholder="Country" required value={address.country} onChange={(e) => setAddress({...address, country: e.target.value})} />
           <div className="checkout-summary">
-            <h4>Total to Pay: ₹{displayTotal.toFixed(2)}</h4>
+            <h4>Apply Coupon</h4>
+            <div style={{display:"flex",gap:"10px"}}>
+              <input
+              type="text"
+              placeholder="Enter coupon code"
+              value={couponCode}
+              onChange={(e)=>{
+                setCouponCode(e.target.value);
+                setDiscount(0);
+                setAppliedCoupon("");
+                setCouponSuccess("");
+                setCouponError("");
+              }}
+              />
+              <button
+              type="button"
+              onClick={applyCoupon}
+              disabled={applyingCoupon||!couponCode.trim()}
+              >
+                {applyingCoupon?"Applying...":"Apply"}
+
+              </button>
+            </div>
+            {couponError && (<p style={{color:"red"}}>{couponError}</p>
+            )}
+            {couponSuccess &&(<p style={{color:"green"}}>{couponSuccess}</p>)}
+            <p>Subtotal: ₹{displayTotal.toFixed(2)}</p>
+            {appliedCoupon && (
+              <>
+              <p>
+                Coupon:{appliedCoupon}
+              </p>
+              <p style={{color:"green"}}>
+                Discount:-₹{discount.toFixed(2)}
+              </p>
+              </>
+            )}
+
+            <h4>Total to Pay: ₹{finalTotal.toFixed(2)}</h4>
             <button type="submit" className="btn" disabled={loading}>
               {loading ? 'Processing...' : 'Pay Now'}
             </button>
