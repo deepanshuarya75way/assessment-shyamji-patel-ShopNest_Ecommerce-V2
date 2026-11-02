@@ -16,6 +16,12 @@ exports.validateCoupon=async(req,res)=>{
     const coupon=await Coupon.findOne({
       code:String(code).trim().toUpperCase()
     });
+    const alreadyUsed=coupon.usedBy.some(id=>id.toString()===req.user._id.toString());
+    if(alreadyUsed){
+      return res.status(400).json({
+        message:"You have already used this coupon"
+      });
+    }
     if(!coupon||!coupon.isActive){
       return res.status(400).json({
         message:"Invalid coupon code"

@@ -221,22 +221,13 @@ const importData = async () => {
       
     ];
     const coupons=[
+        
         {
-          "code":"SAVE120",
+          "code":"SAVE50",
           "discountType":"persentage",
-          "discountValue":20,
-          "minOrderAmount":500,
-          "expiryDate":new Date("2027-09-31T23:59:59.000Z"),
-          "usageLimit":100,
-          "usedCount":0,
-          "isActive":true
-        },
-        {
-          "code":"SAVE40",
-          "discountType":"persentage",
-          "discountValue":40,
+          "discountValue":50,
           "minOrderAmount":1000,
-          "expiryDate":new Date("2026-09-31T23:59:59.000Z"),
+          "expiryDate":new Date("2027-09-31T23:59:59.000Z"),
           "usageLimit":100,
           "usedCount":0,
           "isActive":true

@@ -158,6 +158,30 @@ const verifyPayment = async (req, res) => {
                 return res.status(409).json({ message: "One or more items went out of stock during checkout" });
             }
         }
+        if(order.status!=="pending"){
+            return res.status(400).json({
+                message:"This order was already processed"
+            });
+        }
+        if(order.couponId){
+            const result=await Coupon.updateOne(
+                {
+                    _id:order.couponId,
+                    usedBy:{$ne:req.user._id},
+                    $expr:{$lt:["$usedCount","$usageLimit"]}
+                },
+                {
+                    $addToSet:{usedBy:req.user._id},
+                    $inc:{usedCount:1}
+                }
+            );
+            if(result.modifiedCount!==1){
+                return res.status(400).json({
+                    message:"Coupon alreday used or usdage limit reached"
+                });
+            }
+        }
+
         for (const item of order.items) {
             await Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.qty } });
         }
